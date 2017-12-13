@@ -26,7 +26,7 @@ Move the binary in to your PATH:
 Once you clone this repository, you'll have to configure a few things. First, clone and build _Tomcat-in-the-cloud_ :
 
     $ git clone https://github.com/web-servers/tomcat-in-the-cloud.git
-    $ mvn install -f build.xml
+    $ mvn -f tomcat-in-the-cloud/pom.xml install
 
 then edit _src/main/java/com/prototype/maximebeck/Main.java_ and fill the constantes values with your coresponding data. Most of these constants are self-explanatory, for those which aren't, here is how you can find their values :
 
