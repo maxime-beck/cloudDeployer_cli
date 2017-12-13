@@ -1,0 +1,29 @@
+{
+   "kind":"Service",
+   "apiVersion":"v1",
+   "metadata":{
+      "name":"$NAME",
+      "creationTimestamp":null,
+      "labels":{
+         "run":"$NAME"
+      }
+   },
+   "spec":{
+      "ports":[
+         {
+            "protocol":"TCP",
+            "port":$EXPOSED_PORT,
+            "targetPort":$DEPLOYED_PORT
+         }
+      ],
+      "selector":{
+         "run":"$NAME"
+      },
+      "type":"LoadBalancer"
+   },
+   "status":{
+      "loadBalancer":{
+
+      }
+   }
+}

@@ -1,0 +1,49 @@
+{
+   "kind":"Deployment",
+   "apiVersion":"extensions/v1beta1",
+   "metadata":{
+      "name":"$NAME",
+      "creationTimestamp":null,
+      "labels":{
+         "run":"$NAME"
+      }
+   },
+   "spec":{
+      "replicas":$REPLICAS,
+      "selector":{
+         "matchLabels":{
+            "run":"$NAME"
+         }
+      },
+      "template":{
+         "metadata":{
+            "creationTimestamp":null,
+            "labels":{
+               "run":"$NAME"
+            }
+         },
+         "spec":{
+            "containers":[
+               {
+                  "name":"$NAME",
+                  "image":"$IMAGE",
+                  "ports":[
+                     {
+                        "containerPort":$PORT
+                     }
+                  ],
+                  "resources":{
+
+                  }
+               }
+            ]
+         }
+      },
+      "strategy":{
+
+      }
+   },
+   "status":{
+
+   }
+}
