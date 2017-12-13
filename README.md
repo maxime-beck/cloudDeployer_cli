@@ -4,7 +4,8 @@
 1. Visit the [Kubernetes Engine page](https://console.cloud.google.com/projectselector/kubernetes) in the Google Cloud Platform Console.
 2. Create or select a project.
 3. Wait for the API and related services to be enabled. This can take several minutes.
-4. [Enable billing](https://cloud.google.com/billing/docs/how-to/modify-project?visit_id=1-636474745958210931-1883118929&rd=1#enable-billing) for your project.
+4. When the _Kubernetes clusters_ pop-up comes up, select _create_.
+5. [Enable billing](https://cloud.google.com/billing/docs/how-to/modify-project?visit_id=1-636474745958210931-1883118929&rd=1#enable-billing) for your project.
 
 ## Download and install Kubernetes CLI
 Download the latest release with the command:
@@ -40,7 +41,6 @@ And checking for the IP address of the _Kubernetes master_.
 **DOCKER_AUTH_FILE**
 
 That constant represent the path to a service account key JSON file. Using the Google Cloud Dashboard, you can get this file following this procedure :
-Create a service account key (JSON) :
 
 1. Go to https://console.cloud.google.com/apis/credentials/serviceaccountkey
 2. Make sure the correct project is selected (top of the page) or create one
