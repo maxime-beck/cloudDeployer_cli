@@ -33,15 +33,15 @@ import java.util.HashSet;
 
 public class Main {
     // User scoped properties
-    private static final String KUBERNETES_HOST_IP = "35.195.68.233";
-    private static final String PROJECT_ID = "tomcat-in-the-cloud";
-    private static final String TOMCAT_IN_THE_CLOUD_BASEDIR = "/home/mbeck/work/undergit/tomcat-in-the-cloud_repos/tomcat-in-the-cloud";
-    private static final String DOCKER_AUTH_FILE = "tomcat-in-the-cloud-8947ffac8c02.json";
-    private static final String NODE_NAME = "tomcat-deployer-test-2";
+    private static final String KUBERNETES_HOST_IP = "[host_ip]";
+    private static final String PROJECT_ID = "[project_id]";
+    private static final String TOMCAT_IN_THE_CLOUD_BASEDIR = "[basedir]";
+    private static final String DOCKER_AUTH_FILE = "[filename]";
+    private static final String NODE_NAME = "tomcat-deployer";
     private static final String DEPLOYMENT_PORT = "8080";
     private static final String EXPOSED_PORT = "80";
     private static final String REPLICAS = "3";
-    private static final String ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4teDF2MTgiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjQyMGI1NjEzLWRmNDItMTFlNy1hYjQwLTQyMDEwYTg0MDE2NSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.YP3UHBoy4bZSAgkA6pYeAv8fFnsKRxgzTmbD_itS13jC4ebxJDXok5KR9MQsbobyn2m4jTv7XsWcaTP9PBj7c9ezta2dRzx4vO2IDGw0ytNED71jnukZfehHwC2Fnve4h7paNYuO3anM2jeznEWcaJmCsWzcxBHm2YD0vWE0OQnigUHf_GJwRk1LlUZUm4Sj_J9hBX98iYyvX6O6duS4ueI26bz_Tj1KMmRvtzqzsv-z8Ua4Ved5-37fO-YqRpoCY3XuwRJn-Hl9Yqvilm_JfKXu0lNVes6IMojnnTJ17e8LBZ1_gx_WCq4djoJk-uarjCJfTNa9VODQVB_WwxZFJw";
+    private static final String ACCESS_TOKEN = "[access_token]";
     // ----
 
     // Application scoped properties
