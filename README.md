@@ -23,10 +23,19 @@ Move the binary in to your PATH:
 
 
 ## Configure
-Once you clone this repository, you'll have to configure a few things. First, clone and build _Tomcat-in-the-cloud_ :
+Once you clone this repository, you'll have to configure a few things. First, build _Tomcat-in-the-cloud_. To do this, you can run the following script  :
 
-    $ git clone https://github.com/web-servers/tomcat-in-the-cloud.git
-    $ mvn -f tomcat-in-the-cloud/pom.xml install
+    // Build CloudStreamProvider
+    git clone https://github.com/maxime-beck/cloudStreamProvider.git
+    mvn -f cloudStreamProvider/pom.xml install
+    
+    // Build CloudMemberProvider
+    git clone https://github.com/maxime-beck/cloudMemberProvider.git
+    mvn -f cloudMemberProvider/pom.xml install
+    
+    // Build Tomcat-in-the-cloud
+    git clone https://github.com/web-servers/tomcat-in-the-cloud.git
+    mvn -f tomcat-in-the-cloud/pom.xml install
 
 then edit _src/main/java/com/prototype/maximebeck/Main.java_ and fill the constantes values with your coresponding data. Most of these constants are self-explanatory, for those which aren't, here is how you can find their values :
 
