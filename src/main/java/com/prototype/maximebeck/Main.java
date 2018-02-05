@@ -20,6 +20,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 
+import javax.net.ssl.*;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -28,32 +29,33 @@ import java.nio.file.Paths;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HashSet;
 
 public class Main {
     // User scoped properties
-    private static final String PROVIDER = "AWS"; // GCLOUD, AWS, AZURE
-    private static final String PROVIDER_REGISTRY_DOMAIN = "dkr.ecr.eu-central-1.amazonaws.com"; // gcloud : gcr.io, AWS : dkr.ecr.[zone].amazonaws.com
-    private static final String KUBERNETES_HOST_ADDRESS = "api-tomcat-bucket-k8s-loc-onige1-1997602364.eu-central-1.elb.amazonaws.com";
-    private static final String REGISTRY_ID = "794491693827"; // PROJECT_ID on gcloud
-    private static final String REPOSITORY_NAME = "tomcat-in-the-cloud-repo";
+    private static final String PROVIDER = "OPENSHIFT";                                                         // GCLOUD, AWS, AZURE, OPENSHIFT
+    private static final String PROVIDER_REGISTRY_DOMAIN = "docker-registry-default.10.33.144.141.xip.io";      // gcloud : gcr.io, AWS : dkr.ecr.[zone].amazonaws.com, OpenShift : docker-registry-default.<ip>.xip.io
+    private static final String KUBERNETES_HOST_ADDRESS = "bela1:8443";
+    private static final String REGISTRY_ID = "tomcat-in-the-cloud";                                            // PROJECT_ID on gcloud and Openshift
+    private static final String REPOSITORY_NAME = "";                                                           // Only needed for AWS
     private static final String TOMCAT_IN_THE_CLOUD_BASEDIR = "tomcat-in-the-cloud";
 
     private static final String DOCKER_AUTH_FILE = "";
-    private static final String DOCKER_USERNAME = "";
-    private static final String DOCKER_PASSWORD = "";
+    private static final String DOCKER_USERNAME = "maxime";
+    private static final String DOCKER_PASSWORD = "rzfq-_LxHZzt4Dp98UfT8m8L6v-vsgqcSvWOwyLPTys";
 
-    private static final String NODE_NAME = "tomcat-deployer";
+    private static final String DEPLOYMENT_NAME = "tomcat-deployer";
     private static final String DEPLOYMENT_PORT = "8080";
     private static final String EXPOSED_PORT = "80";
     private static final String REPLICAS = "3";
-    private static final String ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tejB2c2IiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjI1ZTFlZTY2LWQ1MTQtMTFlNy1hZmRjLTAyZWU1NjgzMDc2OCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.RIDDxiNbdn0ZXMALf6y94i5CGFBUUPQJUVNNPZaNa6lP-jIaBA7TdYWHIzuzS6MrrENxLH3ER6NiB1pYto1tqZ6YntF1xjHnM9ErykK7wQnf2_Lkn4mlHVEo5Oo_XKybOTTwZIDA-8JUMIuDElYqr_51X-KTlGY_niW1oH4AYWXj8WJKtYJhIjT4OEkAKXTEFjFQqPahtWcGIcSJcJeXa8doEBiuj1kHSAKEeU0sZatPYoPFy7IW0tHAUe3UeIvRL7nZO_U7KFE67bnbWF9_qOqYnl3KJvW7LjbkrF4118j8yan2pkN10PKbva4yRXsSDRy1UQkEVsYD4yN4VjU7iA";
+    private static final String ACCESS_TOKEN = "rzfq-_LxHZzt4Dp98UfT8m8L6v-vsgqcSvWOwyLPTys";
     // ----
 
     // Application scoped properties
-    private static final String DEPLOY_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/apis/extensions/v1beta1/namespaces/default/deployments";
-    private static final String EXPOSE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/api/v1/namespaces/default/services";
+    private static final String DEPLOY_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/apis/extensions/v1beta1/namespaces/" + REGISTRY_ID + "/deployments";
+    private static final String EXPOSE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/api/v1/namespaces/" + REGISTRY_ID + "/services";
     private static final String DOCKER_IMAGE_NAME = "tomcat-in-the-cloud";
     private static final String DOCKER_IMAGE_VERSION = "v1";
     private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
@@ -67,7 +69,8 @@ public class Main {
     public enum Provider {
         GCLOUD,
         AWS,
-        AZURE;
+        AZURE,
+        OPENSHIFT;
     }
 
     public static void main(String args[]) {
@@ -86,11 +89,23 @@ public class Main {
         // Provider
         provider = Provider.valueOf(PROVIDER);
 
-        // HTTP
-        SSLContextBuilder builder = new SSLContextBuilder();
-        builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
-        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
-        httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+        // HTTPS
+        /** Solution with TrustSelfSignedStrategy() -> Works for AWS and GCloud | Doesn't for Openshift */
+        //SSLContextBuilder builder = new SSLContextBuilder();
+        //builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+        //SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
+        //SSLConnectionSocketFactory sslsf = RelaxedSSLContext.getInstance().getSocketFactory();
+        //httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+
+        /** Solution by accepting all certificate (insecure) */
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        ctx.init(new KeyManager[0], new TrustManager[] {new DefaultTrustManager()}, new SecureRandom());
+        httpclient = HttpClients.custom().setSSLContext(ctx).setSSLHostnameVerifier((new HostnameVerifier() {
+            @Override
+            public boolean verify(String arg0, SSLSession arg1) {
+                return true;
+            }
+        })).build();
 
         // Docker
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
@@ -102,8 +117,10 @@ public class Main {
         else if (DOCKER_USERNAME != "" && DOCKER_PASSWORD != "")
             dockerAuth = dockerAuthconfig(DOCKER_USERNAME, DOCKER_PASSWORD);
 
+        //TODO add support for Openshift and Azure
         switch (provider) {
             case GCLOUD:
+            case OPENSHIFT:
                 dockerImageTag = PROVIDER_REGISTRY_DOMAIN + "/" + REGISTRY_ID + "/" + DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
                 break;
             case AWS:
@@ -126,7 +143,7 @@ public class Main {
     private static void deploy(String specFile) throws IOException {
         System.out.println("Deploying...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , NODE_NAME);
+        specs = specs.replace("$NAME" , DEPLOYMENT_NAME);
         specs = specs.replace("$IMAGE" , dockerImageTag);
         specs = specs.replace("$PORT" , DEPLOYMENT_PORT);
         specs = specs.replace("$REPLICAS" , REPLICAS);
@@ -136,10 +153,14 @@ public class Main {
     private static void expose(String specFile) throws IOException {
         System.out.println("Exposing...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , NODE_NAME);
+        specs = specs.replace("$NAME" , DEPLOYMENT_NAME);
         specs = specs.replace("$DEPLOYED_PORT" , DEPLOYMENT_PORT);
         specs = specs.replace("$EXPOSED_PORT" , EXPOSED_PORT);
         handleRequestPOST(EXPOSE_URL, specs);
+    }
+
+    private static void createRoute() {
+
     }
 
     private static void handleRequestPOST(String url, String specs) throws IOException {
@@ -147,6 +168,8 @@ public class Main {
         try {
             response = sslRequestPOST(url, specs);
             print(response);
+        } catch (Exception e) {
+          e.printStackTrace();
         } finally {
             response.close();
         }
