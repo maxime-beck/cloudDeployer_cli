@@ -36,7 +36,8 @@ import java.util.HashSet;
 public class Main {
     // User scoped properties
     private static final String PROVIDER = "OPENSHIFT";                                                         // GCLOUD, AWS, AZURE, OPENSHIFT
-    private static final String PROVIDER_REGISTRY_DOMAIN = "docker-registry-default.10.33.144.141.xip.io";      // gcloud : gcr.io, AWS : dkr.ecr.[zone].amazonaws.com, OpenShift : docker-registry-default.<ip>.xip.io
+    private static final String PROVIDER_REGISTRY_DOMAIN = "10.33.144.141.xip.io";                              // gcloud : gcr.io, AWS : dkr.ecr.[zone].amazonaws.com, OpenShift : docker-registry-default.<ip>.xip.io
+    private static final String DOCKER_REGISTRY_NAME = "docker-registry-default";                               // only for Openshift
     private static final String KUBERNETES_HOST_ADDRESS = "bela1:8443";
     private static final String REGISTRY_ID = "tomcat-in-the-cloud";                                            // PROJECT_ID on gcloud and Openshift
     private static final String REPOSITORY_NAME = "";                                                           // Only needed for AWS
@@ -56,6 +57,7 @@ public class Main {
     // Application scoped properties
     private static final String DEPLOY_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/apis/extensions/v1beta1/namespaces/" + REGISTRY_ID + "/deployments";
     private static final String EXPOSE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/api/v1/namespaces/" + REGISTRY_ID + "/services";
+    private static final String ROUTE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/oapi/v1/namespaces/" + REGISTRY_ID + "/routes";
     private static final String DOCKER_IMAGE_NAME = "tomcat-in-the-cloud";
     private static final String DOCKER_IMAGE_VERSION = "v1";
     private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
@@ -80,6 +82,10 @@ public class Main {
             dockerPush(dockerImageTag);
             deploy("./resources/deployment.json");
             expose("./resources/expose.json");
+
+            if(provider.equals(Provider.OPENSHIFT))
+                createRoute("./resources/route.json");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -121,7 +127,7 @@ public class Main {
         switch (provider) {
             case GCLOUD:
             case OPENSHIFT:
-                dockerImageTag = PROVIDER_REGISTRY_DOMAIN + "/" + REGISTRY_ID + "/" + DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
+                dockerImageTag = DOCKER_REGISTRY_NAME + "." + PROVIDER_REGISTRY_DOMAIN + "/" + REGISTRY_ID + "/" + DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
                 break;
             case AWS:
                 dockerImageTag = REGISTRY_ID + "." + PROVIDER_REGISTRY_DOMAIN + "/" + REPOSITORY_NAME + ":" + DOCKER_IMAGE_VERSION;
@@ -159,8 +165,13 @@ public class Main {
         handleRequestPOST(EXPOSE_URL, specs);
     }
 
-    private static void createRoute() {
-
+    private static void createRoute(String specFile) throws IOException {
+        System.out.println("Creating route...");
+        String specs = readFile(specFile, StandardCharsets.UTF_8);
+        specs = specs.replace("$SERVICE_NAME" , DEPLOYMENT_NAME);
+        specs = specs.replace("$NAMESPACE" , REGISTRY_ID);
+        specs = specs.replace("$HOST" , DEPLOYMENT_NAME + "-" + REGISTRY_ID + "." + PROVIDER_REGISTRY_DOMAIN);
+        handleRequestPOST(ROUTE_URL, specs);
     }
 
     private static void handleRequestPOST(String url, String specs) throws IOException {

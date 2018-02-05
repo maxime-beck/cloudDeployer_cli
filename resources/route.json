@@ -1,0 +1,24 @@
+{
+  "kind": "Route",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "$SERVICE_NAME",
+    "namespace": "$NAMESPACE",
+    "annotations": {
+      "haproxy.router.openshift.io/balance": "roundrobin",
+      "openshift.io/host.generated": "true",
+      "haproxy.router.openshift.io/disable_cookies":"true"
+    }
+  },
+  "spec": {
+    "host": "$HOST",
+    "to": {
+      "kind": "Service",
+      "name": "$SERVICE_NAME",
+      "weight": 1
+    },
+    "wildcardPolicy": "None"
+  },
+  "status": {
+  }
+}
