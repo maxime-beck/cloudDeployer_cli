@@ -12,12 +12,9 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 
 import javax.net.ssl.*;
@@ -32,41 +29,23 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Properties;
 
 public class Main {
-    // User scoped properties
-    private static final String PROVIDER = "OPENSHIFT";                                                         // GCLOUD, AWS, AZURE, OPENSHIFT
-    private static final String PROVIDER_REGISTRY_DOMAIN = "10.33.144.141.xip.io";                              // gcloud : gcr.io, AWS : dkr.ecr.[zone].amazonaws.com, OpenShift : docker-registry-default.<ip>.xip.io
-    private static final String DOCKER_REGISTRY_NAME = "docker-registry-default";                               // only for Openshift
-    private static final String KUBERNETES_HOST_ADDRESS = "bela1:8443";
-    private static final String REGISTRY_ID = "tomcat-in-the-cloud";                                            // PROJECT_ID on gcloud and Openshift
-    private static final String REPOSITORY_NAME = "";                                                           // Only needed for AWS
-    private static final String TOMCAT_IN_THE_CLOUD_BASEDIR = "tomcat-in-the-cloud";
-
-    private static final String DOCKER_AUTH_FILE = "";
-    private static final String DOCKER_USERNAME = "maxime";
-    private static final String DOCKER_PASSWORD = "rzfq-_LxHZzt4Dp98UfT8m8L6v-vsgqcSvWOwyLPTys";
-
-    private static final String DEPLOYMENT_NAME = "tomcat-deployer";
-    private static final String DEPLOYMENT_PORT = "8080";
-    private static final String EXPOSED_PORT = "80";
-    private static final String REPLICAS = "3";
-    private static final String ACCESS_TOKEN = "rzfq-_LxHZzt4Dp98UfT8m8L6v-vsgqcSvWOwyLPTys";
-    // ----
-
-    // Application scoped properties
-    private static final String DEPLOY_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/apis/extensions/v1beta1/namespaces/" + REGISTRY_ID + "/deployments";
-    private static final String EXPOSE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/api/v1/namespaces/" + REGISTRY_ID + "/services";
-    private static final String ROUTE_URL = "https://" + KUBERNETES_HOST_ADDRESS + "/oapi/v1/namespaces/" + REGISTRY_ID + "/routes";
     private static final String DOCKER_IMAGE_NAME = "tomcat-in-the-cloud";
     private static final String DOCKER_IMAGE_VERSION = "v1";
     private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
+
+    private static String deployUrl;
+    private static String exposeUrl;
+    private static String routeUrl;
 
     private static CloseableHttpClient httpclient;
     private static DockerClient dockerClient;
     private static AuthConfig dockerAuth;
     private static String dockerImageTag = "";
     private static Provider provider;
+    private static Properties props;
 
     public enum Provider {
         GCLOUD,
@@ -78,7 +57,7 @@ public class Main {
     public static void main(String args[]) {
         try {
             init();
-            dockerBuild(TOMCAT_IN_THE_CLOUD_BASEDIR, dockerImageTag);
+            dockerBuild(props.getProperty("TOMCAT_IN_THE_CLOUD_BASEDIR"), dockerImageTag);
             dockerPush(dockerImageTag);
             deploy("./resources/deployment.json");
             expose("./resources/expose.json");
@@ -91,9 +70,37 @@ public class Main {
         }
     }
 
+    public static void initProperties() {
+        // Properties file
+        props = new Properties();
+        InputStream input = null;
+
+        try {
+            input = new FileInputStream("./config/cloud.properties");
+            // load a properties file
+            props.load(input);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        deployUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
+        exposeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
+        routeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
+    }
+
     public static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException, IOException {
+        initProperties();
+
         // Provider
-        provider = Provider.valueOf(PROVIDER);
+        provider = Provider.valueOf(props.getProperty("PROVIDER"));
 
         // HTTPS
         /** Solution with TrustSelfSignedStrategy() -> Works for AWS and GCloud | Doesn't for Openshift */
@@ -118,19 +125,24 @@ public class Main {
         dockerClient = DockerClientBuilder.getInstance(config).build();
         dockerAuth = null;
 
-        if(DOCKER_AUTH_FILE != "")
-            dockerAuth = dockerAuthconfig(DOCKER_AUTH_FILE);
-        else if (DOCKER_USERNAME != "" && DOCKER_PASSWORD != "")
-            dockerAuth = dockerAuthconfig(DOCKER_USERNAME, DOCKER_PASSWORD);
+        if(props.getProperty("DOCKER_AUTH_FILE") != null)
+            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_AUTH_FILE"));
+        else if (props.getProperty("DOCKER_USERNAME") != null && props.getProperty("DOCKER_PASSWORD") != null)
+            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_USERNAME"), props.getProperty("DOCKER_PASSWORD"));
 
-        //TODO add support for Openshift and Azure
+        //TODO add support for Azure
         switch (provider) {
             case GCLOUD:
             case OPENSHIFT:
-                dockerImageTag = DOCKER_REGISTRY_NAME + "." + PROVIDER_REGISTRY_DOMAIN + "/" + REGISTRY_ID + "/" + DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
+                dockerImageTag = props.getProperty("DOCKER_REGISTRY_NAME") + "." +
+                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
+                                 props.getProperty("REGISTRY_ID") + "/" +
+                                 DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
                 break;
             case AWS:
-                dockerImageTag = REGISTRY_ID + "." + PROVIDER_REGISTRY_DOMAIN + "/" + REPOSITORY_NAME + ":" + DOCKER_IMAGE_VERSION;
+                dockerImageTag = props.getProperty("REGISTRY_ID") + "." +
+                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
+                                 props.getProperty("REPOSITORY_NAME") + ":" + DOCKER_IMAGE_VERSION;
                 break;
         }
     }
@@ -143,35 +155,36 @@ public class Main {
         return new AuthConfig()
                 .withUsername(username)
                 .withPassword(password)
-                .withRegistryAddress("https://" + PROVIDER_REGISTRY_DOMAIN);
+                .withRegistryAddress("https://" + props.getProperty("PROVIDER_REGISTRY_DOMAIN"));
     }
 
     private static void deploy(String specFile) throws IOException {
         System.out.println("Deploying...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , DEPLOYMENT_NAME);
+        specs = specs.replace("$NAME" , props.getProperty("DEPLOYMENT_NAME"));
         specs = specs.replace("$IMAGE" , dockerImageTag);
-        specs = specs.replace("$PORT" , DEPLOYMENT_PORT);
-        specs = specs.replace("$REPLICAS" , REPLICAS);
-        handleRequestPOST(DEPLOY_URL, specs);
+        specs = specs.replace("$PORT" , props.getProperty("DEPLOYMENT_PORT"));
+        specs = specs.replace("$REPLICAS" , props.getProperty("REPLICAS"));
+        handleRequestPOST(deployUrl, specs);
     }
 
     private static void expose(String specFile) throws IOException {
         System.out.println("Exposing...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , DEPLOYMENT_NAME);
-        specs = specs.replace("$DEPLOYED_PORT" , DEPLOYMENT_PORT);
-        specs = specs.replace("$EXPOSED_PORT" , EXPOSED_PORT);
-        handleRequestPOST(EXPOSE_URL, specs);
+        specs = specs.replace("$NAME" , props.getProperty("DEPLOYMENT_NAME"));
+        specs = specs.replace("$DEPLOYED_PORT" , props.getProperty("DEPLOYMENT_PORT"));
+        specs = specs.replace("$EXPOSED_PORT" , props.getProperty("EXPOSED_PORT"));
+        handleRequestPOST(exposeUrl, specs);
     }
 
     private static void createRoute(String specFile) throws IOException {
         System.out.println("Creating route...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$SERVICE_NAME" , DEPLOYMENT_NAME);
-        specs = specs.replace("$NAMESPACE" , REGISTRY_ID);
-        specs = specs.replace("$HOST" , DEPLOYMENT_NAME + "-" + REGISTRY_ID + "." + PROVIDER_REGISTRY_DOMAIN);
-        handleRequestPOST(ROUTE_URL, specs);
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("PROVIDER_REGISTRY_DOMAIN");
+        specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
+        specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
+        specs = specs.replace("$HOST" , host);
+        handleRequestPOST(routeUrl, specs);
     }
 
     private static void handleRequestPOST(String url, String specs) throws IOException {
@@ -201,7 +214,7 @@ public class Main {
         HttpPost request = new HttpPost(url);
         request.addHeader("Content-Type", "application/json");
         request.addHeader("Accept", "application/json");
-        request.addHeader("Authorization", "Bearer " + ACCESS_TOKEN);
+        request.addHeader("Authorization", "Bearer " + props.getProperty("ACCESS_TOKEN"));
         StringEntity entity_json = new StringEntity(jsonBody);
         request.setEntity(entity_json);
         return httpclient.execute(request);
