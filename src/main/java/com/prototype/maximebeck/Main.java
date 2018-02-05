@@ -12,14 +12,12 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 
+import javax.net.ssl.*;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -28,81 +26,165 @@ import java.nio.file.Paths;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Properties;
 
 public class Main {
-    // User scoped properties
-    private static final String KUBERNETES_HOST_IP = "[host_ip]";
-    private static final String PROJECT_ID = "[project_id]";
-    private static final String TOMCAT_IN_THE_CLOUD_BASEDIR = "[basedir]";
-    private static final String DOCKER_AUTH_FILE = "[filename]";
-    private static final String NODE_NAME = "tomcat-deployer";
-    private static final String DEPLOYMENT_PORT = "8080";
-    private static final String EXPOSED_PORT = "80";
-    private static final String REPLICAS = "3";
-    private static final String ACCESS_TOKEN = "[access_token]";
-    // ----
+    private static final String DOCKER_IMAGE_NAME = "tomcat-in-the-cloud";
+    private static final String DOCKER_IMAGE_VERSION = "v1";
+    private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
 
-    // Application scoped properties
-    private static final String DEPLOY_URL = "https://" + KUBERNETES_HOST_IP + "/apis/extensions/v1beta1/namespaces/default/deployments";
-    private static final String EXPOSE_URL = "https://" + KUBERNETES_HOST_IP + "/api/v1/namespaces/default/services";
-    private static final String DOCKER_IMAGE_TAG = "gcr.io/" + PROJECT_ID + "/tomcat-in-the-cloud:v1";
+    private static String deployUrl;
+    private static String exposeUrl;
+    private static String routeUrl;
 
     private static CloseableHttpClient httpclient;
     private static DockerClient dockerClient;
     private static AuthConfig dockerAuth;
+    private static String dockerImageTag = "";
+    private static Provider provider;
+    private static Properties props;
+
+    public enum Provider {
+        GCLOUD,
+        AWS,
+        AZURE,
+        OPENSHIFT;
+    }
 
     public static void main(String args[]) {
         try {
             init();
-            dockerBuild(TOMCAT_IN_THE_CLOUD_BASEDIR, DOCKER_IMAGE_TAG);
-            dockerPush(DOCKER_IMAGE_TAG);
+            dockerBuild(props.getProperty("TOMCAT_IN_THE_CLOUD_BASEDIR"), dockerImageTag);
+            dockerPush(dockerImageTag);
             deploy("./resources/deployment.json");
             expose("./resources/expose.json");
+
+            if(provider.equals(Provider.OPENSHIFT))
+                createRoute("./resources/route.json");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    public static void initProperties() {
+        // Properties file
+        props = new Properties();
+        InputStream input = null;
+
+        try {
+            input = new FileInputStream("./config/cloud.properties");
+            // load a properties file
+            props.load(input);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        deployUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
+        exposeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
+        routeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
+    }
+
     public static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException, IOException {
-        // HTTP
-        SSLContextBuilder builder = new SSLContextBuilder();
-        builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
-        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
-        httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+        initProperties();
+
+        // Provider
+        provider = Provider.valueOf(props.getProperty("PROVIDER"));
+
+        // HTTPS
+        /** Solution with TrustSelfSignedStrategy() -> Works for AWS and GCloud | Doesn't for Openshift */
+        //SSLContextBuilder builder = new SSLContextBuilder();
+        //builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+        //SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
+        //SSLConnectionSocketFactory sslsf = RelaxedSSLContext.getInstance().getSocketFactory();
+        //httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+
+        /** Solution by accepting all certificate (insecure) */
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        ctx.init(new KeyManager[0], new TrustManager[] {new DefaultTrustManager()}, new SecureRandom());
+        httpclient = HttpClients.custom().setSSLContext(ctx).setSSLHostnameVerifier((new HostnameVerifier() {
+            @Override
+            public boolean verify(String arg0, SSLSession arg1) {
+                return true;
+            }
+        })).build();
 
         // Docker
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
         dockerClient = DockerClientBuilder.getInstance(config).build();
-        dockerAuth = dockerAuthconfig(DOCKER_AUTH_FILE);
+        dockerAuth = null;
+
+        if(props.getProperty("DOCKER_AUTH_FILE") != null)
+            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_AUTH_FILE"));
+        else if (props.getProperty("DOCKER_USERNAME") != null && props.getProperty("DOCKER_PASSWORD") != null)
+            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_USERNAME"), props.getProperty("DOCKER_PASSWORD"));
+
+        //TODO add support for Azure
+        switch (provider) {
+            case GCLOUD:
+            case OPENSHIFT:
+                dockerImageTag = props.getProperty("DOCKER_REGISTRY_NAME") + "." +
+                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
+                                 props.getProperty("REGISTRY_ID") + "/" +
+                                 DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
+                break;
+            case AWS:
+                dockerImageTag = props.getProperty("REGISTRY_ID") + "." +
+                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
+                                 props.getProperty("REPOSITORY_NAME") + ":" + DOCKER_IMAGE_VERSION;
+                break;
+        }
     }
 
     private static AuthConfig dockerAuthconfig(String authFile) throws IOException {
-        String password = readFile(authFile, StandardCharsets.UTF_8);
+        return dockerAuthconfig(DOCKER_AUTH_JSON_KEY_USER, readFile(authFile, StandardCharsets.UTF_8));
+    }
+
+    private static AuthConfig dockerAuthconfig(String username, String password) throws IOException {
         return new AuthConfig()
-                    .withUsername("_json_key")
-                    .withPassword(password)
-                    .withRegistryAddress("https://gcr.io");
+                .withUsername(username)
+                .withPassword(password)
+                .withRegistryAddress("https://" + props.getProperty("PROVIDER_REGISTRY_DOMAIN"));
     }
 
     private static void deploy(String specFile) throws IOException {
         System.out.println("Deploying...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , NODE_NAME);
-        specs = specs.replace("$IMAGE" , DOCKER_IMAGE_TAG);
-        specs = specs.replace("$PORT" , DEPLOYMENT_PORT);
-        specs = specs.replace("$REPLICAS" , REPLICAS);
-        handleRequestPOST(DEPLOY_URL, specs);
+        specs = specs.replace("$NAME" , props.getProperty("DEPLOYMENT_NAME"));
+        specs = specs.replace("$IMAGE" , dockerImageTag);
+        specs = specs.replace("$PORT" , props.getProperty("DEPLOYMENT_PORT"));
+        specs = specs.replace("$REPLICAS" , props.getProperty("REPLICAS"));
+        handleRequestPOST(deployUrl, specs);
     }
 
     private static void expose(String specFile) throws IOException {
         System.out.println("Exposing...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        specs = specs.replace("$NAME" , NODE_NAME);
-        specs = specs.replace("$DEPLOYED_PORT" , DEPLOYMENT_PORT);
-        specs = specs.replace("$EXPOSED_PORT" , EXPOSED_PORT);
-        handleRequestPOST(EXPOSE_URL, specs);
+        specs = specs.replace("$NAME" , props.getProperty("DEPLOYMENT_NAME"));
+        specs = specs.replace("$DEPLOYED_PORT" , props.getProperty("DEPLOYMENT_PORT"));
+        specs = specs.replace("$EXPOSED_PORT" , props.getProperty("EXPOSED_PORT"));
+        handleRequestPOST(exposeUrl, specs);
+    }
+
+    private static void createRoute(String specFile) throws IOException {
+        System.out.println("Creating route...");
+        String specs = readFile(specFile, StandardCharsets.UTF_8);
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("PROVIDER_REGISTRY_DOMAIN");
+        specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
+        specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
+        specs = specs.replace("$HOST" , host);
+        handleRequestPOST(routeUrl, specs);
     }
 
     private static void handleRequestPOST(String url, String specs) throws IOException {
@@ -110,6 +192,8 @@ public class Main {
         try {
             response = sslRequestPOST(url, specs);
             print(response);
+        } catch (Exception e) {
+          e.printStackTrace();
         } finally {
             response.close();
         }
@@ -130,7 +214,7 @@ public class Main {
         HttpPost request = new HttpPost(url);
         request.addHeader("Content-Type", "application/json");
         request.addHeader("Accept", "application/json");
-        request.addHeader("Authorization", "Bearer " + ACCESS_TOKEN);
+        request.addHeader("Authorization", "Bearer " + props.getProperty("ACCESS_TOKEN"));
         StringEntity entity_json = new StringEntity(jsonBody);
         request.setEntity(entity_json);
         return httpclient.execute(request);
@@ -168,9 +252,13 @@ public class Main {
             }
         };
 
-        dockerClient.pushImageCmd(tag)
-                .withAuthConfig(dockerAuth)
-                .exec(pushCallback).awaitSuccess();
+        if(dockerAuth != null)
+            dockerClient.pushImageCmd(tag)
+                    .withAuthConfig(dockerAuth)
+                    .exec(pushCallback).awaitSuccess();
+        else
+            dockerClient.pushImageCmd(tag)
+                    .exec(pushCallback).awaitSuccess();
     }
 
     static String readFile(String path, Charset encoding)
