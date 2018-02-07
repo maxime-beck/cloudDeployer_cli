@@ -32,8 +32,6 @@ import java.util.HashSet;
 import java.util.Properties;
 
 public class Main {
-    private static final String DOCKER_IMAGE_NAME = "tomcat-in-the-cloud";
-    private static final String DOCKER_IMAGE_VERSION = "v1";
     private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
 
     private static String deployUrl;
@@ -135,14 +133,14 @@ public class Main {
             case GCLOUD:
             case OPENSHIFT:
                 dockerImageTag = props.getProperty("DOCKER_REGISTRY_NAME") + "." +
-                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
+                                 props.getProperty("PROVIDER_DOMAIN") + "/" +
                                  props.getProperty("REGISTRY_ID") + "/" +
-                                 DOCKER_IMAGE_NAME + ":" + DOCKER_IMAGE_VERSION;
+                                 props.getProperty("DOCKER_IMAGE_NAME") + ":" + props.getProperty("DOCKER_IMAGE_VERSION");
                 break;
             case AWS:
                 dockerImageTag = props.getProperty("REGISTRY_ID") + "." +
-                                 props.getProperty("PROVIDER_REGISTRY_DOMAIN") + "/" +
-                                 props.getProperty("REPOSITORY_NAME") + ":" + DOCKER_IMAGE_VERSION;
+                                 props.getProperty("PROVIDER_DOMAIN") + "/" +
+                                 props.getProperty("REPOSITORY_NAME") + ":" + props.getProperty("DOCKER_IMAGE_VERSION");
                 break;
         }
     }
@@ -155,7 +153,7 @@ public class Main {
         return new AuthConfig()
                 .withUsername(username)
                 .withPassword(password)
-                .withRegistryAddress("https://" + props.getProperty("PROVIDER_REGISTRY_DOMAIN"));
+                .withRegistryAddress("https://" + props.getProperty("PROVIDER_DOMAIN"));
     }
 
     private static void deploy(String specFile) throws IOException {
@@ -180,7 +178,7 @@ public class Main {
     private static void createRoute(String specFile) throws IOException {
         System.out.println("Creating route...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("PROVIDER_REGISTRY_DOMAIN");
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("PROVIDER_DOMAIN");
         specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
         specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
         specs = specs.replace("$HOST" , host);
@@ -238,6 +236,7 @@ public class Main {
         };
 
         dockerClient.buildImageCmd(dockerFile)
+                .withBuildArg("registry_id", props.getProperty("REGISTRY_ID"))
                 .withTags(new HashSet<String>(Arrays.asList(tag)))
                 .exec(callback).awaitImageId();
     }
