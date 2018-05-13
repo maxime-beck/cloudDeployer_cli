@@ -89,9 +89,9 @@ public class Main {
             }
         }
 
-        deployUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
-        exposeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
-        routeUrl = "https://" + props.getProperty("KUBERNETES_HOST_ADDRESS") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
+        deployUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
+        exposeUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
+        routeUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
     }
 
     public static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException, IOException {
@@ -237,6 +237,7 @@ public class Main {
 
         dockerClient.buildImageCmd(dockerFile)
                 .withBuildArg("registry_id", props.getProperty("REGISTRY_ID"))
+                .withBuildArg("war", props.getProperty("WAR"))
                 .withTags(new HashSet<String>(Arrays.asList(tag)))
                 .exec(callback).awaitImageId();
     }
