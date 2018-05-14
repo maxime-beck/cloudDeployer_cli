@@ -89,9 +89,9 @@ public class Main {
             }
         }
 
-        deployUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
-        exposeUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
-        routeUrl = "https://" + props.getProperty("HOST_ADDRESS") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
+        deployUrl = "https://" + props.getProperty("HOST_ADDRESS") + ":" + props.getProperty("HOST_PORT") + "/apis/extensions/v1beta1/namespaces/" + props.getProperty("REGISTRY_ID") + "/deployments";
+        exposeUrl = "https://" + props.getProperty("HOST_ADDRESS") + ":" + props.getProperty("HOST_PORT") + "/api/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/services";
+        routeUrl = "https://" + props.getProperty("HOST_ADDRESS") + ":" + props.getProperty("HOST_PORT") + "/oapi/v1/namespaces/" + props.getProperty("REGISTRY_ID") + "/routes";
     }
 
     public static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException, IOException {
@@ -125,21 +125,20 @@ public class Main {
 
         if(props.getProperty("DOCKER_AUTH_FILE") != null)
             dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_AUTH_FILE"));
-        else if (props.getProperty("DOCKER_USERNAME") != null && props.getProperty("DOCKER_PASSWORD") != null)
-            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_USERNAME"), props.getProperty("DOCKER_PASSWORD"));
+        else if (props.getProperty("DOCKER_USERNAME") != null && props.getProperty("DOCKER_TOKEN") != null)
+            dockerAuth = dockerAuthconfig(props.getProperty("DOCKER_USERNAME"), props.getProperty("DOCKER_TOKEN"));
 
         //TODO add support for Azure
         switch (provider) {
             case GCLOUD:
             case OPENSHIFT:
-                dockerImageTag = props.getProperty("DOCKER_REGISTRY_NAME") + "." +
-                                 props.getProperty("PROVIDER_DOMAIN") + "/" +
+                dockerImageTag = props.getProperty("REGISTRY_ADDRESS") + "/" +
                                  props.getProperty("REGISTRY_ID") + "/" +
                                  props.getProperty("DOCKER_IMAGE_NAME") + ":" + props.getProperty("DOCKER_IMAGE_VERSION");
                 break;
             case AWS:
                 dockerImageTag = props.getProperty("REGISTRY_ID") + "." +
-                                 props.getProperty("PROVIDER_DOMAIN") + "/" +
+                                 props.getProperty("REGISTRY_ADDRESS") + "/" +
                                  props.getProperty("REPOSITORY_NAME") + ":" + props.getProperty("DOCKER_IMAGE_VERSION");
                 break;
         }
@@ -153,7 +152,7 @@ public class Main {
         return new AuthConfig()
                 .withUsername(username)
                 .withPassword(password)
-                .withRegistryAddress("https://" + props.getProperty("PROVIDER_DOMAIN"));
+                .withRegistryAddress("https://" + props.getProperty("REGISTRY_ADDRESS"));
     }
 
     private static void deploy(String specFile) throws IOException {
@@ -178,7 +177,7 @@ public class Main {
     private static void createRoute(String specFile) throws IOException {
         System.out.println("Creating route...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("PROVIDER_DOMAIN");
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("HOST_ADDRESS") + ".nip.io";
         specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
         specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
         specs = specs.replace("$HOST" , host);
@@ -212,7 +211,7 @@ public class Main {
         HttpPost request = new HttpPost(url);
         request.addHeader("Content-Type", "application/json");
         request.addHeader("Accept", "application/json");
-        request.addHeader("Authorization", "Bearer " + props.getProperty("ACCESS_TOKEN"));
+        request.addHeader("Authorization", "Bearer " + props.getProperty("DOCKER_TOKEN"));
         StringEntity entity_json = new StringEntity(jsonBody);
         request.setEntity(entity_json);
         return httpclient.execute(request);
