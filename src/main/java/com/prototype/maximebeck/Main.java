@@ -30,6 +30,8 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Properties;
+import java.awt.Desktop;
+import java.net.URI;
 
 public class Main {
     private static final String DOCKER_AUTH_JSON_KEY_USER = "_json_key";
@@ -182,6 +184,13 @@ public class Main {
         specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
         specs = specs.replace("$HOST" , host);
         handleRequestPOST(routeUrl, specs);
+        if (Desktop.isDesktopSupported()) {
+          try {
+            Desktop.getDesktop().browse(new URI("http://" + host));
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
     }
 
     private static void handleRequestPOST(String url, String specs) throws IOException {
