@@ -45,6 +45,7 @@ public class Main {
     private static AuthConfig dockerAuth;
     private static String dockerImageTag = "";
     private static Provider provider;
+    private static Mode mode;
     private static Properties props;
 
     public enum Provider {
@@ -54,10 +55,24 @@ public class Main {
         OPENSHIFT;
     }
 
+    public enum Mode {
+        MONOLITHIC,
+        MICROSERVICE;
+    }
+
     public static void main(String args[]) {
         try {
             init();
-            dockerBuild(props.getProperty("TOMCAT_IN_THE_CLOUD_BASEDIR"), dockerImageTag);
+
+            if(mode.equals(Mode.MONOLITHIC))
+              dockerBuild("./", dockerImageTag);
+            else if (mode.equals(Mode.MICROSERVICE))
+              dockerBuild(props.getProperty("TOMCAT_IN_THE_CLOUD_BASEDIR"), dockerImageTag);
+            else {
+              // TODO Implement logs and exception handlers
+              System.out.println("Error : Mode property must be set to either MONOLITHIC or MICROSERVICE.");
+            }
+
             dockerPush(dockerImageTag);
             deploy("./resources/deployment.json");
             expose("./resources/expose.json");
@@ -99,8 +114,9 @@ public class Main {
     public static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException, IOException {
         initProperties();
 
-        // Provider
+        // Setting variables
         provider = Provider.valueOf(props.getProperty("PROVIDER"));
+        mode = Mode.valueOf(props.getProperty("MODE"));
 
         // HTTPS
         /** Solution with TrustSelfSignedStrategy() -> Works for AWS and GCloud | Doesn't for Openshift */
