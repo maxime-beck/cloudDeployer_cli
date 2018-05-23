@@ -195,7 +195,7 @@ public class Main {
     private static void createRoute(String specFile) throws IOException {
         System.out.println("Creating route...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + props.getProperty("HOST_ADDRESS") + ".nip.io";
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + (props.getProperty("HOST_ADDRESS").split(":"))[0] + ".nip.io";
         specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
         specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
         specs = specs.replace("$HOST" , host);
