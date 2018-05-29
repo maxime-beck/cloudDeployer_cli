@@ -195,7 +195,15 @@ public class Main {
     private static void createRoute(String specFile) throws IOException {
         System.out.println("Creating route...");
         String specs = readFile(specFile, StandardCharsets.UTF_8);
-        String host = props.getProperty("DEPLOYMENT_NAME") + "-" + props.getProperty("REGISTRY_ID") + "." + (props.getProperty("HOST_ADDRESS").split(":"))[0];
+
+        System.out.println(props.getProperty("HOST_ADDRESS"));
+        String host_address = (props.getProperty("HOST_ADDRESS").split(":"))[0];
+        System.out.println("Host Address : " + host_address);
+        host_address = (host_address.split("-"))[0] + "-80-" + (host_address.split("-"))[2];
+
+        String host = props.getProperty("DEPLOYMENT_NAME") + "-" +
+                      props.getProperty("REGISTRY_ID") + "." +
+                      host_address;
         specs = specs.replace("$SERVICE_NAME" , props.getProperty("DEPLOYMENT_NAME"));
         specs = specs.replace("$NAMESPACE" , props.getProperty("REGISTRY_ID"));
         specs = specs.replace("$HOST" , host);
