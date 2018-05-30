@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.prototype.maximebeck</groupId>
-    <artifactId>googleCloudDeployer</artifactId>
+    <artifactId>cloudDeployer</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
