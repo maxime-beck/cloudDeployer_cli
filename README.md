@@ -18,21 +18,7 @@ Finally, you need to authorize the pods to see their peers for the clustering to
     $ oc policy add-role-to-user view system:serviceaccount:$(oc project -q):default -n $(oc project -q)
 
 ## Configure
-Once you clone this repository, you'll have to configure a few things. First, build _tomcat-in-the-cloud_. To do this, you can run the following script  :
-
-    // Build CloudStreamProvider
-    git clone https://github.com/maxime-beck/cloudStreamProvider.git && \
-    mvn -f cloudStreamProvider/pom.xml install && \
-
-    // Build CloudMemberProvider
-    git clone https://github.com/maxime-beck/cloudMemberProvider.git && \
-    mvn -f cloudMemberProvider/pom.xml install && \
-
-    // Build Tomcat-in-the-cloud
-    git clone https://github.com/web-servers/tomcat-in-the-cloud.git && \
-    mvn -f tomcat-in-the-cloud/pom.xml install
-
-then edit _config/cloud.properties_ and fill in the properties with their corresponding values. Here is a description of these properties :
+Once you clone this repository, you'll have to configure a few things. First, build _tomcat-in-the-cloud_. To do this, you simply run `./setup.sh`. Then, edit `config/cloud.properties` and fill in the properties with their corresponding values. Here is a description of these properties :
 
 | Property                    	| OpenShift 	| Google Cloud 	| AWS 	| Description                                                                                                                             	|
 |-----------------------------	|-----------	|--------------	|-----	|-----------------------------------------------------------------------------------------------------------------------------------------	|
