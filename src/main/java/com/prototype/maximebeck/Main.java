@@ -148,6 +148,7 @@ public class Main {
 
         //TODO add support for Azure
         switch (provider) {
+            case AZURE:
             case GCLOUD:
             case OPENSHIFT:
                 dockerImageTag = props.getProperty("REGISTRY_ADDRESS") + "/" +
@@ -180,6 +181,7 @@ public class Main {
         specs = specs.replace("$IMAGE" , dockerImageTag);
         specs = specs.replace("$PORT" , props.getProperty("DEPLOYMENT_PORT"));
         specs = specs.replace("$REPLICAS" , props.getProperty("REPLICAS"));
+        specs = specs.replace("$SECRET" , props.getProperty("DOCKER_REGISTRY_SECRET"));
         handleRequestPOST(deployUrl, specs);
     }
 
