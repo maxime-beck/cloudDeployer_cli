@@ -29,7 +29,7 @@ Once you clone this repository, you'll have to configure a few things. First, bu
 | REGISTRY_ID                 	|     X     	|       X      	|     	| Registry identifier. On some cloud providers, this is also referred as "Project identifier"                                             	|
 | TOMCAT_IN_THE_CLOUD_BASEDIR 	|     X     	|       X      	|  X  	| The base directory of the builded sources of Tomcat-in-the-cloud                                                                        	|
 | WAR                         	|    (X)    	|      (X)     	| (X) 	| Path to the war file to deploy. Note that the path must be relative to TOMCAT_IN_THE_CLOUD_BASEDIR. Only required on MICROSERVICE mode. 	|
-| REPOSITORY_NAME             	|           	|              	|     	| Name of the repository on which to deploy                                                                                               	|
+| REPOSITORY_NAME             	|           	|       X      	|  X  	| Name of the repository on which to deploy                                                                                               	|
 | DOCKER_AUTH_FILE            	|    (X)    	|      (X)     	| (X) 	| Docker registry authentification file. This must be provided if no docker username and password are used                                	|
 | DOCKER_USERNAME             	|    (X)    	|      (X)     	| (X) 	| Docker registry username. Must be provided if no docker authentification file is used                                                   	|
 | DOCKER_PASSWORD             	|    (X)    	|      (X)     	| (X) 	| Docker registry password (Token). Must be provided if no docker authentification file is used                                           	|
